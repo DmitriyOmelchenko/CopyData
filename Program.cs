@@ -9,8 +9,7 @@ namespace CopyData
 {
     class Program
     {
-        private static int _count = 0;
-        private static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs,DateTime creationDateTime)
+        private  static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs,DateTime creationDateTime)
         {
             // Get the subdirectories for the specified directory.
             DirectoryInfo dir = new DirectoryInfo(sourceDirName);
@@ -35,7 +34,7 @@ namespace CopyData
             {
                 if(file.CreationTime.Date.ToUniversalTime()>=creationDateTime)
                     continue;
-                CopyFileAsync(file, destDirName,_count);
+                CopyFileAsync(file, destDirName);
             }
 
             // If copying subdirectories, copy them and their contents to new location.
@@ -49,26 +48,34 @@ namespace CopyData
                 }
         }
 
-        private static async void CopyFileAsync(FileInfo file,string destDirName,int count)
+        private static async void CopyFileAsync(FileInfo file,string destDirName)
         {
             var temppath = Path.Combine(destDirName, file.Name);
-
-            using (var sourceStream = File.Open(file.Name, FileMode.Open))
+            try
             {
-                using (var destinationStream = File.Create(temppath))
+                using (var sourceStream = File.Open(file.FullName, FileMode.Open))
                 {
-                    try
+                    using (var destinationStream = File.Create(temppath))
                     {
-                        await sourceStream.CopyToAsync(destinationStream);
-                        count++;
-                        Console.WriteLine($"File {file.Name} was copied successfully");
-                    }
-                    catch (Exception)
-                    {
-                        Console.WriteLine($"File {file.Name} was not copied :(");
+                        try
+                        {
+                            Console.WriteLine($"Copying of {file.Name} is starting");
+                            await sourceStream.CopyToAsync(destinationStream);
+                            Console.WriteLine($"File {file.Name} was copied successfully");
+                        }
+                        catch (Exception)
+                        {
+                            Console.WriteLine($"File {file.Name} was not copied :(");
+                        }
                     }
                 }
             }
+            catch (Exception)
+            {
+                
+                Console.WriteLine($"{file.Name}- can't be open");
+            }
+            
         }
 
         static void Main(string[] args)
@@ -86,6 +93,7 @@ namespace CopyData
                 return;
             }
             DirectoryCopy(args[0],args[1],true,DateTime.Parse(args[2]).Date.ToUniversalTime());
+            Console.ReadKey();
         }
     }
 }

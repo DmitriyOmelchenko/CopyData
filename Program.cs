@@ -89,6 +89,16 @@ namespace CopyData
             
         }
 
+        private static void DeleteFolderIfEmpty(string path)
+        {
+            foreach (var directory in Directory.GetDirectories(path))
+            {
+                DeleteFolderIfEmpty(directory);
+                if (Directory.GetFileSystemEntries(directory).Any())
+                    continue;
+                Directory.Delete(directory, false);
+            }
+        }
         static void Main(string[] args)
         {
             if (args.Length < 3)
@@ -106,7 +116,9 @@ namespace CopyData
             DirectoryCopy(args[0],args[1],true,DateTime.Parse(args[2]).Date.ToUniversalTime());
             if (_events != null)
                 WaitHandle.WaitAll(_events.ToArray());
+            DeleteFolderIfEmpty(args[1]);
             Console.WriteLine("Complete");
+
             Console.ReadKey();
         }
     }

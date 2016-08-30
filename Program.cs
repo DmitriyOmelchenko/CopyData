@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,9 @@ namespace CopyData
 {
     class Program
     {
-        private  static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs,DateTime creationDateTime,List<Task> tasks)
+        private static List<ManualResetEvent> _events=new List<ManualResetEvent>();
+
+        private  static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs,DateTime creationDateTime)
         {
             // Get the subdirectories for the specified directory.
             DirectoryInfo dir = new DirectoryInfo(sourceDirName);
@@ -31,11 +34,19 @@ namespace CopyData
 
             // Get the files in the directory and copy them to the new location.
             var files = dir.GetFiles();
+            
             foreach (var file in files)
             {
                 if(file.CreationTime.Date.ToUniversalTime()>=creationDateTime)
                     continue;
-                tasks.Add(new Task(()=>CopyFileAsync(file, destDirName)));  
+                var resetEvent=new ManualResetEvent(false);
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    CopyFileAsync(file, destDirName);
+                    resetEvent.Set();
+                }, null);
+                _events.Add(resetEvent);
+
             }
 
             // If copying subdirectories, copy them and their contents to new location.
@@ -45,7 +56,7 @@ namespace CopyData
                 foreach (var subdir in dirs)
                 {
                     var temppath = Path.Combine(destDirName, subdir.Name);
-                    DirectoryCopy(subdir.FullName, temppath, true, creationDateTime,tasks);
+                    DirectoryCopy(subdir.FullName, temppath, true, creationDateTime);
                 }
         }
 
@@ -92,13 +103,9 @@ namespace CopyData
                 Console.ReadKey();
                 return;
             }
-            var tasks=new List<Task>();
-            DirectoryCopy(args[0],args[1],true,DateTime.Parse(args[2]).Date.ToUniversalTime(),tasks);
-            foreach (var task in tasks)
-            {
-                task.Start();
-            }
-            Task.WaitAll(tasks.ToArray());
+            DirectoryCopy(args[0],args[1],true,DateTime.Parse(args[2]).Date.ToUniversalTime());
+            if (_events != null)
+                WaitHandle.WaitAll(_events.ToArray());
             Console.WriteLine("Complete");
             Console.ReadKey();
         }
